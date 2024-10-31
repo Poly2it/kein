@@ -13,7 +13,7 @@
     langs = kein.langs;
     toolchain = (langs.c.backends.gcc.makeToolchain pkgs ./.);
 
-    simulation = (
+    hello = (
       langs.c.makeExecutable
       toolchain
       {}
@@ -23,8 +23,8 @@
       "hello"
     );
   in {
-    packages.x86_64-linux.default = simulation.derivation;
-    packages.x86_64-linux.propagateCompileCommands = kein.langs.c.makeCompileCommandsPropagator toolchain simulation.translationUnits;
+    packages.x86_64-linux.default = hello.derivation;
+    packages.x86_64-linux.propagateCompileCommands = kein.langs.c.makeCompileCommandsPropagator toolchain hello.translationUnits;
   };
 }
 
