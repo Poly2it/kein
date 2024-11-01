@@ -10,8 +10,9 @@ rec {
     };
     machine = {
     };
+    standard = "c99";
   };
-  makeToolchain = pkgs: projectRoot: rec {
+  makeToolchain = pkgs: projectRoot: options: lib.attrsets.recursiveUpdate rec {
     cc = "${pkgs.gcc}/bin/gcc";
     ccOptions = ccDefaultOptions;
     ld = cc;
@@ -19,7 +20,7 @@ rec {
     system = pkgs.system;
     target = pkgs.system;
     inherit projectRoot makeCompileCommand makeLinkCommand;
-  };
+  } options;
   makeCompileCommand = toolchain: { includes ? [] }: path: let
     ccOptions = lib.attrsets.recursiveUpdate ccDefaultOptions toolchain.ccOptions;
     in lib.concatStringsSep " " [
@@ -28,6 +29,7 @@ rec {
       (plib.tenary (includes == []) "" "-I${lib.makeIncludePath includes}")
       (plib.tenary ccOptions.features.lto "-flto" "")
       (plib.tenary (ccOptions.optimizations.level == null) "" "-O${toString ccOptions.optimizations.level}")
+      "-std=${ccOptions.standard |> lib.strings.escapeShellArg}"
       (path |> plib.dropStorePrefix)
       "-o" "$out/${lib.strings.escapeShellArg (ilib.makeObjectName path)}"
     ];
