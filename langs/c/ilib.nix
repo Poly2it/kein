@@ -13,13 +13,16 @@ rec {
     |> lib.splitString "\n"
     |> lib.filter (a: lib.hasPrefix "#include " a)
     |> map (x: x
-      |> lib.removePrefix "#include "
-      |> lib.trim
+      |> lib.strings.split ''#include ( |(/\*.*\*/))*(".*")|(<.*>)''
+      |> lib.filter (a: lib.isList a)
+      |> lib.lists.flatten
+      |> lib.filter (a: builtins.isString a)
+      |> lib.lists.last
     )
     |> lib.filter (a: lib.hasPrefix "\"" a)
     |> map (x: x
-      |> lib.removePrefix "\""
-      |> lib.removeSuffix "\""
+      |> lib.strings.removePrefix "\""
+      |> lib.strings.removeSuffix "\""
       |> (a: ((plib.parentPath path) |> plib.dropStorePrefix) + "/" + a)
       |> plib.toRelativePath projectRoot
       |> plib.resolvePath
