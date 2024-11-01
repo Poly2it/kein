@@ -21,7 +21,7 @@ rec {
     target = pkgs.system;
     inherit projectRoot makeCompileCommand makeLinkCommand;
   } options;
-  makeCompileCommand = toolchain: { includes ? [] }: path: let
+  makeCompileCommand = toolchain: { includes ? [], ... }: path: let
     ccOptions = lib.attrsets.recursiveUpdate ccDefaultOptions toolchain.ccOptions;
     in lib.concatStringsSep " " [
       toolchain.cc

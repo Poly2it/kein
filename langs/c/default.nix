@@ -3,8 +3,11 @@
 let
   ilib = import ./ilib.nix { inherit lib plib; };
 in {
-  makeTranslationUnit = toolchain: opts @ { includes ? [] }: path: let
+  makeTranslationUnit = toolchain: opts @ { includes ? [], generatedSource ? {} }: path: let
     compileCommand = toolchain.makeCompileCommand toolchain opts path;
+    includedHeaders = ilib.recursiveRelativeIncludes toolchain.projectRoot path;
+    includedSourceHeaders = lib.filter (x: !generatedSource ? x) includedHeaders;
+    includedGeneratedSource = lib.filterAttrs (n: v: builtins.elem (plib.toRelativePath toolchain.projectRoot n) includedHeaders) generatedSource;
   in {
     inherit includes toolchain;
     compileCommand = compileCommand |> plib.splitShellArgs;
@@ -30,8 +33,25 @@ in {
           |> lib.strings.escapeShellArg
         } || exit 1
         ${
-          path
-          |> ilib.recursiveRelativeIncludes toolchain.projectRoot
+          includedGeneratedSource
+          |> builtins.mapAttrs (n: v: ''
+            mkdir -p ${
+              n
+              |> plib.toRelativePath toolchain.projectRoot
+              |> plib.parentPath
+              |> plib.dropStorePrefix
+              |> lib.strings.escapeShellArg
+            }
+            cp ${v.derivation}/* ${
+              n
+              |> lib.strings.escapeShellArg
+            } || exit 1
+          '')
+          |> builtins.attrValues
+          |> lib.concatStringsSep "\n"
+        }
+        ${
+          includedSourceHeaders
           |> map (a: ''
             mkdir -p ${
               a
