@@ -1,4 +1,4 @@
-{ lib, plib, ... }:
+{ pkgs, lib, plib, ... }:
 
 let
   ilib = import ./ilib.nix { inherit lib plib; };
@@ -140,7 +140,7 @@ in {
     outputs = ["bin"];
   };
   backends = {
-    gcc = import ./gcc.nix { inherit lib plib ilib; };
+    gcc = import ./gcc.nix { inherit pkgs lib plib ilib; };
   };
 }
 

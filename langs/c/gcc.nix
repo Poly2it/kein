@@ -1,4 +1,4 @@
-{ lib, plib, ilib, ... }:
+{ pkgs, lib, plib, ilib, ... }:
 
 rec {
   ccDefaultOptions = {
@@ -12,13 +12,13 @@ rec {
     };
     standard = "c99";
   };
-  makeToolchain = pkgs: projectRoot: options: lib.attrsets.recursiveUpdate rec {
-    cc = "${pkgs.gcc}/bin/gcc";
+  makeToolchain = projectRoot: options @ { localPkgs ? pkgs, ... }: lib.attrsets.recursiveUpdate rec {
+    cc = "${localPkgs.gcc}/bin/gcc";
     ccOptions = ccDefaultOptions;
     ld = cc;
     ldOptions = ccOptions;
-    system = pkgs.system;
-    target = pkgs.system;
+    system = localPkgs.system;
+    target = localPkgs.system;
     inherit projectRoot makeCompileCommand makeLinkCommand;
   } options;
   makeCompileCommand = toolchain: { includes ? [], ... }: path: let

@@ -38,7 +38,7 @@ projects without a build system.
 ## Documentation
 ```nix
 {
-  toolchain = (langs.c.backends.gcc.makeToolchain pkgs ./. {});
+  toolchain = (langs.c.backends.gcc.makeToolchain ./. {});
 
   hello = (
     langs.c.makeExecutable

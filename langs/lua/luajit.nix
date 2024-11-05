@@ -1,15 +1,15 @@
-{ lib, plib, ... }:
+{ pkgs, lib, plib, ... }:
 
 rec {
   luaDefaultOptions = {
     luaPath = [];
     luaCPath = [];
   };
-  makeToolchain = pkgs: projectRoot: options: {
-    lua = "${pkgs.luajit}/bin/lua";
-    luaOptions = lib.attrsets.recursiveUpdate luaDefaultOptions options;
+  makeToolchain = projectRoot: opts @ { localPkgs ? pkgs, ... }: {
+    lua = "${localPkgs.luajit}/bin/lua";
+    luaOptions = lib.attrsets.recursiveUpdate luaDefaultOptions opts;
     inherit makeSourceFromGeneratorCommand projectRoot;
-    system = pkgs.system;
+    system = localPkgs.system;
   };
   makeSourceFromGeneratorCommand = toolchain: path: arguments:
     lib.concatStringsSep " " ([

@@ -1,4 +1,4 @@
-{ lib, plib, ... }:
+{ pkgs, lib, plib, ... }:
 
 {
   makeSourceFromGenerator = toolchain: sources: arguments: {
@@ -30,7 +30,7 @@
     };
   };
   backends = {
-    luajit = import ./luajit.nix { inherit lib plib; };
+    luajit = import ./luajit.nix { inherit pkgs lib plib; };
   };
 }
 
