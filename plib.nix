@@ -10,6 +10,24 @@ rec {
     |> pop 1
     |> lib.concatStringsSep "/"
     |> toPath;
+  parentName = path: path
+    |> lib.splitString "/"
+    |> pop 1
+    |> lib.concatStringsSep "/";
+  resolveName = path: path
+    |> lib.strings.normalizePath
+    |> lib.splitString "/"
+    |> lib.lists.foldl (a: b:
+      if b == "." then
+        a
+      else
+        a ++ [b]) []
+    |> lib.lists.foldl (a: b:
+      if b == ".." then
+        (pop 1 a)
+      else
+        a ++ [b]) []
+    |> lib.concatStringsSep "/";
   dropStorePrefix = path: path
     |> builtins.seq (
       lib.assertMsg

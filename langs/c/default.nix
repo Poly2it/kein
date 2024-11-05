@@ -4,14 +4,21 @@ let
   ilib = import ./ilib.nix { inherit lib plib; };
 in {
   makeTranslationUnit = toolchain: opts @ { includes ? [], generatedSource ? {} }: path: let
+    file = path |> plib.dropStorePrefix;
     compileCommand = toolchain.makeCompileCommand toolchain opts path;
-    includedHeaders = ilib.recursiveRelativeIncludes toolchain.projectRoot path;
-    includedSourceHeaders = lib.filter (x: !generatedSource ? x) includedHeaders;
-    includedGeneratedSource = lib.filterAttrs (n: v: builtins.elem (plib.toRelativePath toolchain.projectRoot n) includedHeaders) generatedSource;
+    resolvedIncludedHeaders = ilib.recursiveResolvedIncludes generatedSource toolchain.projectRoot file;
+    resolvedIncludedSource =
+      resolvedIncludedHeaders
+      |> lib.filter (x: !builtins.hasAttr x generatedSource);
+    resolvedIncludedGeneratedSource =
+      resolvedIncludedHeaders
+      |> lib.filter (x: builtins.hasAttr x generatedSource)
+      |> map (x: { name = x; value = generatedSource.${x}.derivation; })
+      |> builtins.listToAttrs;
+    /* includedSourceHeaders actually includes generated headers aaaaaaaaaaaa */
   in {
-    inherit includes toolchain;
+    inherit includes toolchain file;
     compileCommand = compileCommand |> plib.splitShellArgs;
-    file = path |> plib.dropStorePrefix |> toString;
     name = (ilib.makeObjectName path);
     derivation = plib.makeShellBuilder {
       name = (ilib.makeObjectName path);
@@ -20,7 +27,8 @@ in {
       # compile the translation unit with exactly the same file hierarchy as
       # in the source.
       commands = ''
-        mkdir -p ${
+        set -e
+        mkdir -p ./${
           path
           |> plib.parentPath
           |> plib.dropStorePrefix
@@ -29,45 +37,22 @@ in {
         cp ${path} ${
           path
           |> plib.dropStorePrefix
-          |> toString
           |> lib.strings.escapeShellArg
-        } || exit 1
+        }
         ${
-          includedGeneratedSource
-          |> builtins.mapAttrs (n: v: ''
-            mkdir -p ${
-              n
-              |> plib.toRelativePath toolchain.projectRoot
-              |> plib.parentPath
-              |> plib.dropStorePrefix
-              |> lib.strings.escapeShellArg
-            }
-            cp ${v.derivation}/* ${
-              n
-              |> lib.strings.escapeShellArg
-            } || exit 1
+          resolvedIncludedGeneratedSource
+          |> builtins.mapAttrs (name: path: ''
+            mkdir -p ./${name |> plib.parentName |> lib.strings.escapeShellArg}
+            cp ${path}/generated ${name}
           '')
           |> builtins.attrValues
           |> lib.concatStringsSep "\n"
         }
         ${
-          includedSourceHeaders
-          |> map (a: ''
-            mkdir -p ${
-              a
-              |> plib.parentPath
-              |> plib.dropStorePrefix
-              |> lib.strings.escapeShellArg
-            }
-            cp ${
-              a
-              |> plib.dropStorePrefix
-              |> (plib.toRelativePath toolchain.projectRoot)
-            } ${
-              a
-              |> plib.dropStorePrefix
-              |> lib.strings.escapeShellArg
-            } || exit 1
+          resolvedIncludedSource
+          |> map (name: ''
+            mkdir -p ./${name |> plib.parentName |> lib.strings.escapeShellArg}
+            cp ${name |> plib.toRelativePath toolchain.projectRoot} ${name}
           '')
           |> lib.concatStringsSep "\n"
         }
