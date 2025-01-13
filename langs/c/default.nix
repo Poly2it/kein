@@ -56,6 +56,7 @@ in {
           '')
           |> lib.concatStringsSep "\n"
         }
+        echo ${compileCommand}
         ${compileCommand}
       '';
       outputs = ["out"];
@@ -69,9 +70,29 @@ in {
       system = toolchain.system;
       commands = ''
         mkdir $bin/bin
+        echo ${toolchain.makeLinkCommand toolchain opts translationUnits name}
         ${toolchain.makeLinkCommand toolchain opts translationUnits name}
       '';
       outputs = ["bin"];
+    };
+  };
+  makeLibrary = toolchain: opts @ {}: translationUnits: name: {
+    inherit name translationUnits;
+    generatedSource = map (x: x.generatedSource) translationUnits |> lib.attrsets.mergeAttrsList;
+    derivation = plib.makeShellBuilder {
+      inherit name;
+      system = toolchain.system;
+      commands = ''
+        mkdir $out/lib
+        ${toolchain.ar} -rcs ${
+          translationUnits
+            |> map (x: "${x.derivation}/${x.name}"
+              |> lib.strings.escapeShellArg
+            )
+            |> lib.concatStringsSep " "
+        } ${name}
+      '';
+      outputs = ["out"];
     };
   };
   makeGeneratedSourcePropagator = toolchain: generatedSource: plib.makeShellBuilder {

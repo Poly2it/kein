@@ -70,6 +70,8 @@ rec {
   makeShellBuilder = { name, system, commands, outputs }: builtins.derivation {
     inherit name system outputs;
     builder = "${pkgs.bash}/bin/bash";
+    preferLocalBuild = true;
+    allowSubstitutes = false;
     args = [
       "-c"
       (lib.concatStringsSep "\n" [
