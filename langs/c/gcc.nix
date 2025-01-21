@@ -62,7 +62,7 @@ rec {
         |> lib.concatStringsSep " "
       )
       "-o" "$bin/bin/${lib.strings.escapeShellArg name}"
-      (plib.tenary (includes == []) "" "-L${lib.makeLibraryPath (includes |> lib.lists.unique)}")
+      (plib.tenary (includes == []) "" "-L${includes |> lib.lists.unique |> lib.makeLibraryPath |> lib.splitString ":" |> lib.concatStringsSep " -L"}")
       (plib.tenary ccOptions.features.lto "-flto" "")
       (links |> lib.lists.unique |> map (x: "-l${lib.strings.escapeShellArg x}") |> lib.concatStringsSep " ")
     ];
