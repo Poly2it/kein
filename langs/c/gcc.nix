@@ -37,7 +37,7 @@ rec {
     in lib.concatStringsSep " " [
       toolchain.cc
       "-c"
-      (plib.tenary (includes == []) "" "-I${includes |> lib.makeIncludePath |> lib.splitString ":" |> lib.concatStringsSep " -I" includes}")
+      (plib.tenary (includes == []) "" "-I${includes |> lib.makeIncludePath |> lib.splitString ":" |> lib.concatStringsSep " -I"}")
       (plib.tenary ccOptions.features.lto "-flto" "")
       (plib.tenary ccOptions.features.fatLtoObjects "-ffat-lto-objects" "")
       (plib.tenary (ccOptions.optimizations.level == null) "" "-O${toString ccOptions.optimizations.level}")
