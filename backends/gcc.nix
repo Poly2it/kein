@@ -1,6 +1,6 @@
-{ lib, pkgs, ... }:
-
-rec {
+{ lib, pkgs, ... }: let
+  assertOneOf = name: val: xs: (lib.assertOneOf name val xs) |> (_: val);
+in rec {
   fpathToUnitConstraints = fpath: {
     backend = "gcc";
     stage = "compile";
@@ -71,47 +71,165 @@ rec {
     )
     (listOptsPost |> lib.flatten)
   ] |> lib.flatten |> lib.concatStringsSep " ";
-  generateCompileCommand = toolchain: {
-    unit,
-    include ? [],
+  generateBaseCommand = {
     positionIndependentCode ? false,
     positionIndependentExecutable ? false,
+    optimizeLevel ? "2",
+    debugSymbols ? false,
+    sanitizeAddress ? false || sanitizePointerComparisons,
+    sanitizePointerComparisons ? false,
+    omitFramePointer ? true,
     standard ? "c23",
     ...
-  }: generateCommand [
-    toolchain.cc
-    "-c"
-    (unit |> lib.fpath.fileName)
-  ] {
-    std = standard;
-    fPIC = positionIndependentCode;
-    fPIE = positionIndependentExecutable;
-  } [
-    "-o"
-    "$out"
-    (lib.forEach include (x: "-I${lib.makeIncludePath [x]}"))
-  ];
-  generateLinkCommand = toolchain: name: {
+  }: listOptsPre: keyOpts: listOptsPost: (
+    generateCommand
+    listOptsPre {
+      std = assertOneOf "standard" standard [
+        # c90
+        "c90"
+        "c89"
+        "iso9899:1990"
+        "iso9899:199409"
+        # c99
+        "c99"
+        "c9x"
+        "iso9899:1999"
+        "iso9899:199x"
+        # c11
+        "c11"
+        "c1x"
+        "iso9899:2011"
+        # c17
+        "c17"
+        "c18"
+        "iso9899:2017"
+        "iso9899:2018"
+        # c23
+        "c23"
+        "c2x"
+        "iso9899:2024"
+        # c2y
+        "c2y"
+        # GNU 89
+        "gnu90"
+        "gnu89"
+        # GNU 99
+        "gnu99"
+        "gnu9x"
+        # GNU 11
+        "gnu11"
+        "gnu1x"
+        # GNU 17
+        "gnu17"
+        "gnu18"
+        # GNU 23
+        "gnu23"
+        "gnu2x"
+        # GNU 2Y
+        "gnu2y"
+        # C++ 1998
+        "c++98"
+        "c++03"
+        # GNU++ 1998
+        "gnu++98"
+        "gnu++03"
+        # C++ 2011
+        "c++11"
+        "c++0x"
+        # GNU++ 2011
+        "gnu++11"
+        "gnu++0x"
+        # C++ 2014
+        "c++14"
+        "c++1y"
+        # GNU++ 2014
+        "gnu++14"
+        "gnu++1y"
+        # C++ 2017
+        "c++17"
+        "c++1z"
+        # GNU++ 2017
+        "gnu++17"
+        "gnu++1z"
+        # C++ 2020
+        "c++20"
+        "c++2a"
+        # GNU++ 2020
+        "gnu++20"
+        "gnu++2a"
+        # C++ 2023
+        "c++23"
+        "c++2b"
+        # GNU++ 2023
+        "gnu++23"
+        "gnu++2b"
+        # C++ 202C
+        "c++2c"
+        "c++26"
+        # GNU++ 202C
+        "gnu++2c"
+        "gnu++26"
+      ];
+      fPIC = positionIndependentCode;
+      fPIE = positionIndependentExecutable;
+      g = debugSymbols;
+    }
+    ([
+      "-O${assertOneOf "optimizeLevel" optimizeLevel [
+        "0"
+        "1"
+        "2"
+        "3"
+        "z"
+      ]}"
+      (if omitFramePointer then "-fomit-frame-pointer" else "-fno-omit-frame-pointer")
+      (if sanitizeAddress then "-fsanitize=address" else "")
+      (if sanitizePointerComparisons then "-fsanitize=pointer-compare" else "")
+    ] ++ listOptsPost)
+  );
+  generateCompileCommand = toolchain: constraints @ {
+    unit,
+    include ? [],
+    ...
+  }: (
+    generateBaseCommand
+    constraints
+    [
+      toolchain.cc
+      "-c"
+      (unit |> lib.fpath.fileName)
+    ]
+    {
+    }
+    [
+      "-o"
+      "$out"
+      (lib.forEach include (x: "-I${lib.makeIncludePath [x]}"))
+    ]
+  );
+  generateLinkCommand = toolchain: name: constraints @ {
     units,
     include ? [],
     link ? [],
-    positionIndependentCode ? false,
-    positionIndependentExecutable ? false,
     ...
-  }: generateCommand [
-    toolchain.ld
-    "-o"
-    "$bin/bin/${name}"
-  ] {
-    fuse-ld = "mold";
-    fPIC = positionIndependentCode;
-    fPIE = positionIndependentExecutable;
-    "Wl,-rpath" = lib.makeLibraryPath include;
-  } [
-    (lib.forEach units (x: compileUnit (constraintsToToolchain pkgs units) x))
-    (lib.forEach include (x: "-L${lib.makeLibraryPath [x]}"))
-    (lib.forEach link (x: "-l${x}"))
-  ];
+  }: (
+    generateBaseCommand
+    constraints
+    [
+      toolchain.ld
+      "-o"
+      "$bin/bin/${name}"
+    ]
+    {
+      fuse-ld = "mold";
+      "Wl,-rpath" = lib.makeLibraryPath include;
+    }
+    [
+      (lib.forEach units (x: compileUnit (constraintsToToolchain pkgs units) x))
+      (lib.forEach include (x: "-L${lib.makeLibraryPath [x]}"))
+      (lib.forEach link (x: "-l${x}"))
+    ]
+  );
   compileUnit = toolchain: unitConstraints @ { unit, ... }: lib.builders.keinDerivation {
     name = "${unit |> lib.fpath.fileNameStem}.o";
     command = let
