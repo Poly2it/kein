@@ -116,9 +116,9 @@ rec {
     name = "${unit |> lib.fpath.fileNameStem}.o";
     command = let
       compileCommand = generateCompileCommand toolchain unitConstraints;
-      includes = lib.header.parse unit |> map (x: unit |> lib.fpath.leave |> lib.fpath.enter x);
+      includes = lib.header.parseRecursivelyFpath unit;
       # The last component is the file itself, which is subtracted.
-      maxIncludeDepth = if lib.length includes > 0 then (includes |> lib.fpath.deepest |> lib.fpath.length) - 1 else 0;
+      maxIncludeDepth = lib.min (if lib.length includes > 0 then (includes |> lib.fpath.deepest |> lib.fpath.length) - 1 else 0) ((unit |> lib.fpath.length) - 1);
       copyHeaders = lib.forEach includes (include:
         include
         |> lib.fpath.components

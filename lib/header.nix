@@ -1,6 +1,6 @@
 { lib, ... }:
 
-{
+rec {
   parse = fpath:
     fpath
     |> lib.fpath.toPath
@@ -20,5 +20,11 @@
       |> lib.strings.removeSuffix "\""
     )
     |> lib.lists.unique;
+  parseRecursivelyFpath = fpath:
+  let
+    includes = parse fpath;
+    fpathIncludes = (lib.forEach includes (include: fpath |> lib.fpath.leave |> lib.fpath.enter include));
+  in
+    fpathIncludes ++ (lib.forEach fpathIncludes (include: parseRecursivelyFpath include)) |> lib.flatten;
 }
 
