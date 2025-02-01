@@ -10,7 +10,7 @@
     systems = ["x86_64-linux" "aarch64-linux" "x86_64-darwin" "aarch64-darwin"];
     forAllSystems = f: nixpkgs.lib.genAttrs systems (system: f (pkgsFor system) system);
   in {
-    flakeFromKeinexpr = { bin ? {}, default ? null }: {
+    flakeFromKeinexpr = { bin ? {} }: {
       overlays.default = final: prev: {
       };
       packages = forAllSystems (pkgs: system: let
@@ -21,10 +21,13 @@
           constraints = (import ./lib/constraints.nix { inherit lib pkgs system backends; });
         };
         backends = (import ./backends { inherit lib pkgs; });
+        api = (import ./api { inherit lib pkgs; });
       in
-        bin
+        (if builtins.isFunction bin then
+          (bin { inherit pkgs system; gcc = api.gcc; })
+        else
+          bin)
         |> lib.attrsToList
-        |> (x: x ++ [{ name = "default"; value = default; }])
         |> map ({ name, value }: {
           inherit name;
           value = (lib.constraints.toExecutable name (lib.constraints.resolveConstraint value));

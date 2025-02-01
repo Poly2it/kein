@@ -8,8 +8,15 @@
   };
 
   outputs = { kein, ... }: kein.flakeFromKeinexpr {
-    bin = rec {
-      main = ./main.c;
+    bin = { pkgs, gcc, ... }: rec {
+      main =
+        [
+          ./main.c
+          ./utils.c
+        ]
+        |> gcc.include pkgs.raylib
+        |> gcc.link "raylib"
+        |> gcc.setPositionIndependent true;
       default = main;
     };
   };

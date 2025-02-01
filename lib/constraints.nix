@@ -7,17 +7,17 @@ rec {
     in gcc.fpathToUnitConstraints fpath;
   }.${lib.fpath.fileExtension fpath};
   inferConstraintsFromConstraintExprList = list: let
-    backend = lib.foldr list (aUnresolved: backend: let
+    backend = lib.foldr (aUnresolved: backend: let
       a = resolveConstraint aUnresolved;
     in
       if isNull backend then a.backend else
       if a.backend == "gcc" then "gcc" else
-      backend
-    ) null;
+      throw "Cannot infer constraints from list of constraints"
+    ) null list;
   in {
     "gcc" = let
       gcc = backends.gcc;
-    in gcc.constraintsFromConstraintsExprList list;
+    in gcc.constraintsFromConstraintExprList list;
   }.${backend};
   toExecutable = name: constraintsExpr: {
     "gcc" = let
@@ -31,10 +31,9 @@ rec {
       inferConstraintsFromFpath fpath
     else if lib.isList value then
       value
-      |> map (x: resolveConstraint)
-      inferConstraintsFromConstraintExprList
+      |> inferConstraintsFromConstraintExprList
     else if lib.isAttrs value then
       value
-    else throw "";
+    else throw value;
 }
 

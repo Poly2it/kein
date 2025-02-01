@@ -7,32 +7,118 @@ rec {
 
     unit = fpath;
   };
-  constraintsFromConstraintExprList = list: let
-    inheritedContraints = list |> lib.mergeAttrsList;
-    toolchain = constraintsToToolchain pkgs inheritedContraints;
+  constraintsFromConstraintExprList = unresolvedList: let
+    units = map (x: lib.constraints.resolveConstraint x) unresolvedList;
+    inheritedContraints = units |> lib.mergeAttrsList;
   in inheritedContraints // {
     backend = "gcc";
     stage = "link";
 
-    inherit toolchain;
-    units = map (x: x |> compileUnit toolchain) list;
+    inherit units;
   };
   constraintsToToolchain = pkgs: constraints: {
     cc = "${pkgs.gcc}/bin/gcc";
     ld = "${pkgs.gcc}/bin/gcc";
   };
-  toExecutable = name: constraintsExpr:
-    if constraintsExpr.stage == "compile" then
-      toExecutable name (constraintsFromConstraintExprList [constraintsExpr])
+  propagateConstraintsFromUnits = constraints @ {
+    positionIndependent ? false,
+    ...
+  }: units: (
+    lib.foldr
+    (a: b: lib.mergeAttrs a b)
+    constraints
+    units) // {
+      positionIndependentExecutable = positionIndependent;
+    };
+  propagateConstraintsToUnit = constraints @ {
+    positionIndependent ? false,
+    ...
+  }: unit:
+    unit
+    |> lib.mergeAttrs constraints
+    |> (x: lib.removeAttrs x ["units"])
+    |> (constraints: constraints // {
+      positionIndependentExecutable = positionIndependent;
+    });
+  toExecutable = name: unresolvedConstraints @ { units ? [], ... }: let
+    mergedConstraints = propagateConstraintsFromUnits unresolvedConstraints units;
+    constraints = lib.removeAttrs (lib.mergeAttrs mergedConstraints {
+      units = lib.forEach unresolvedConstraints.units (unit: propagateConstraintsToUnit mergedConstraints unit);
+    }) ["unit"];
+  in
+    if constraints.stage == "compile" then
+      toExecutable name (constraintsFromConstraintExprList [unresolvedConstraints])
     else
-      linkUnits constraintsExpr.toolchain name constraintsExpr;
+      linkUnits (constraintsToToolchain pkgs constraints) name constraints;
+  generateCommand = listOptsPre: keyOpts: listOptsPost: [
+    (listOptsPre |> lib.flatten)
+    (
+      keyOpts
+      |> lib.mapAttrsToList (name: value:
+        if builtins.isBool value then
+          if value then
+            "-${name}"
+          else
+            ""
+        else if value == "" then
+          ""
+        else
+          "-${name}=${value}"
+      )
+      |> lib.filter (x: x != "")
+      |> lib.naturalSort
+      |> lib.concatStringsSep " "
+    )
+    (listOptsPost |> lib.flatten)
+  ] |> lib.flatten |> lib.concatStringsSep " ";
+  generateCompileCommand = toolchain: {
+    unit,
+    include ? [],
+    positionIndependentCode ? false,
+    positionIndependentExecutable ? false,
+    standard ? "c23",
+    ...
+  }: generateCommand [
+    toolchain.cc
+    "-c"
+    (unit |> lib.fpath.fileName)
+  ] {
+    std = standard;
+    fPIC = positionIndependentCode;
+    fPIE = positionIndependentExecutable;
+  } [
+    "-o"
+    "$out"
+    (lib.forEach include (x: "-I${lib.makeIncludePath [x]}"))
+  ];
+  generateLinkCommand = toolchain: name: {
+    units,
+    include ? [],
+    link ? [],
+    positionIndependentCode ? false,
+    positionIndependentExecutable ? false,
+    ...
+  }: generateCommand [
+    toolchain.ld
+    "-o"
+    "$bin/bin/${name}"
+  ] {
+    fuse-ld = "mold";
+    fPIC = positionIndependentCode;
+    fPIE = positionIndependentExecutable;
+    "Wl,-rpath" = lib.makeLibraryPath include;
+  } [
+    (lib.forEach units (x: compileUnit (constraintsToToolchain pkgs units) x))
+    (lib.forEach include (x: "-L${lib.makeLibraryPath [x]}"))
+    (lib.forEach link (x: "-l${x}"))
+  ];
   compileUnit = toolchain: unitConstraints @ { unit, ... }: lib.builders.keinDerivation {
     name = "${unit |> lib.fpath.fileNameStem}.o";
     command = let
-      compileCommand = "${toolchain.cc} -c ${unit |> lib.fpath.fileName} -std=c23 -fPIC -o $out";
+      compileCommand = generateCompileCommand toolchain unitConstraints;
       includes = lib.header.parse unit |> map (x: unit |> lib.fpath.leave |> lib.fpath.enter x);
       # The last component is the file itself, which is subtracted.
-      maxIncludeDepth = (includes |> lib.fpath.deepest |> lib.fpath.length) - 1;
+      maxIncludeDepth = if lib.length includes > 0 then (includes |> lib.fpath.deepest |> lib.fpath.length) - 1 else 0;
       copyHeaders = lib.forEach includes (include:
         include
         |> lib.fpath.components
@@ -62,10 +148,10 @@ rec {
       inherit unitConstraints;
     };
   };
-  linkUnits = toolchain: name: linkConstraints @ { units, ... }: lib.builders.keinDerivation {
+  linkUnits = toolchain: name: linkConstraints: lib.builders.keinDerivation {
     inherit name;
     command = let
-      compileCommand = "${toolchain.ld} -fuse-ld=mold -o $bin/bin/${name} ${units |> lib.concatStringsSep " "}";
+      compileCommand = generateLinkCommand toolchain name linkConstraints;
     in ''
       mkdir $bin/bin -p
       echo ${compileCommand}
