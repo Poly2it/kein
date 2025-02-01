@@ -1,5 +1,6 @@
-# Kein
-*Kein* is a contemporary build system centered around Nix.
+<p align="center"><image width="40%" src="./doc/logo.svg"/></p>
+
+<p align="center"><i>Kein</i> is a contemporary build system centered around Nix.</p>
 
 ## Pitch
 Setting up a flake with a C program runnable using `nix run` on x86_64 and
