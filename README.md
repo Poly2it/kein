@@ -132,8 +132,29 @@ object compilation, and `lib` searchable during linkage.
 ### `gcc.link <name>`
 Links `name` as in `-l<name>` during compilation.
 
+### `gcc.define <key> <value>`
+Defines `key` as a compile-time macro `name`.
+
 ### `gcc.setPositionIndependent <bool>`
 Sets the `positionIndependent` constraint to `bool`. If the unit is compiled to
 an executable, `-fPIE` will be used. If the unit is compiled to an archive
 `-fPIC` is used.
+
+### `gcc.setOptimizeLevel <value>`
+Sets the optimization level to `value`. Equivalent to `-O<value>`.
+
+### `gcc.setDebugSymbols <bool>`
+Decides whether debug symbols should be enabled. Equivalent to `-g`.
+
+### `gcc.sanitizeAddresses <bool>`
+Decides whether AddressSanitizer should be enabled and set to sanitise
+addresses.
+
+### `gcc.sanitizePointerComparisons <bool>`
+Decides whether AddressSanitizer should be set to sanitise pointer comparisons
+between unrelated objects. Will also enable `sanitizeAddresses`.
+
+### `gcc.debug`
+Enables an assortent of options tailored towards debuggable builds. Includes
+AddressSanitizer.
 
