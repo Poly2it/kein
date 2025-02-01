@@ -1,6 +1,32 @@
 # Kein
 *Kein* is a contemporary build system centered around Nix.
 
+## Pitch
+Setting up a flake with a C program runnable using `nix run` on x86_64 and
+aarch64 Linux and Darwin:
+```nix
+{
+  description = "My kein flake";
+
+  inputs = {
+    nixpkgs.url = "github:nixos/nixpkgs?ref=nixos-unstable";
+    kein = {
+      url = "https://github.com/Poly2it/kein.git";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+  };
+
+  outputs = { kein, ... }: kein.flakeFromKeinexpr {
+    bin = rec {
+      main = ./main.c;
+      default = main;
+    };
+  };
+}
+```
+
+Kein is currently in unstable alpha.
+
 ## Rationale
 First and foremost, I do not think any of the existing build systems are
 good enough. Makefiles have been my go-to option for configuring project builds
@@ -36,48 +62,77 @@ indefinitely as a derivation, allowing fast iteration times. Nix builds your
 projects without a build system.
 
 ## Documentation
+### Linkage
+#### Inferred linkage
+The linkage formula will by default be inferred by the constraint expressions
+used in the linkage expression.
+
+#### Explicit linkage
+The linkage forumla can be written expressly using `<backend>` as a functor.
+
 ```nix
-{
-  toolchain = (langs.c.backends.gcc.makeToolchain ./. {});
-
-  hello = (
-    langs.c.makeExecutable
-    toolchain
-    {}
-    [
-      (langs.c.makeTranslationUnit toolchain {} ./main.c)
-    ]
-    "hello"
-  );
-}
+./main.c |> gcc
 ```
-*Please refer to [the example](example/flake.nix) for a full solution.*
 
-This is the code necessary to configure a *hello world* project.
-`langs.c.makeExecutable` is a function which takes a *toolchain* attrset, an
-*options* attrset, a list of translation units and finally the name of the
-resulting executable. It returns an attrset containing the derivation and some
-metadata. The only translation unit in this case is *main*. It is similarly
-configured using `langs.c.makeTranslationUnit`, which takes the *toolchain*,
-*options* and *path* of the source. It also builds an attrset containing the
-derivation and some metadata.
+### Constraint API
+The compilation of an output is configured via constraints. A constraint takes
+a `constraintExpr`, that is either another constraint, a path or a list of
+`constraintExprs`, and outputs a new `constraint` depending on the constraint
+function used. A constraint may represent a single compilation unit, or a
+collection of units, for example when linking multiple units via the GCC
+backend.
 
-The toolchain is shared (as a rule) between all objects. It contains the core
-packages and functions used for deciding how every derivation should be built.
-Most importantly, `cc`, `ccOptions`, `ld` and `ldOptions`. `ccOptions`, the C
-compiler options, sets the features, machine and optimisation settings used
-when, in this case, the GCC backend compiles the source.
+Different backends have different constraints. To access a backend, write your
+output (bin, lib, etc.) as a function taking a set:
 
-The top-level *options* mostly handle settings which cannot be deduced from
-other parts of the program, such as the libraries to link or derivations whose
-headers should be made available during the compilation of a translation unit.
+```nix
+bin = { gcc, ... }: rec {
+  main = ./main.c;
+  default = main;
+};
+```
 
-All languages and backends will be thoroughly documented once settled later in
-development.
+`gcc` is now the API for the `gcc` backend. We are additionally given optional
+access to `pkgs` and `system`. We can now set compilation options, for example
+including the raylib headers and linking raylib:
 
----
+```nix
+bin = { gcc, pkgs, ... }: rec {
+  main =
+    ./main.c
+    |> gcc.include pkgs.raylib
+    |> gcc.link "raylib";
+  default = main;
+};
+```
 
-<img src="docs/lgpl.svg" alt="drawing" width="200" align="right"/>
+If the constraint is acting on a list of `constraintExprs`, the constraint will
+propagate to all inner constraints. To except an inner `constraintExpr`, the
+inverse, or another value on the excepted expression:
 
-Kein is free software, licensed under the LGPL-3.0 license.
+```nix
+bin = { gcc, pkgs, ... }: rec {
+  main =
+    [
+      ./a.c
+      (./b.c |> gcc.setPositionIndependent false)
+    ]
+    |> gcc.setPositionIndependent true
+    |> gcc.include pkgs.raylib
+    |> gcc.link "raylib";
+  default = main;
+};
+```
+
+### `gcc.include <package>`
+Where package is a derivation, makes its `include` directory searchable during
+object compilation, and `lib` searchable during linkage.
+
+### `gcc.link <name>`
+Links `name` as in `-l<name>` during compilation.
+
+### `gcc.setPositionIndependent <bool>`
+Sets the `positionIndependent` constraint to `bool`. If the unit is compiled to
+an executable, `-fPIE` will be used. If the unit is compiled to an archive
+`-fPIC` is used.
 

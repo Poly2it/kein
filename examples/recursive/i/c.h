@@ -1,0 +1,2 @@
+#define MESSAGE_C "!"
+
