@@ -1,6 +1,67 @@
-## Documentation
-### Compilation
+# Kein
+*Kein* is a contemporary build system centered around Nix.
 
+## Pitch
+Setting up a flake with a C program runnable using `nix run` on x86_64 and
+aarch64 Linux and Darwin:
+```nix
+{
+  description = "My kein flake";
+
+  inputs = {
+    nixpkgs.url = "github:nixos/nixpkgs?ref=nixos-unstable";
+    kein = {
+      url = "https://github.com/Poly2it/kein.git";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+  };
+
+  outputs = { kein, ... }: kein.flakeFromKeinexpr {
+    bin = rec {
+      main = ./main.c;
+      default = main;
+    };
+  };
+}
+```
+
+Kein is currently in unstable alpha.
+
+## Rationale
+First and foremost, I do not think any of the existing build systems are
+good enough. Makefiles have been my go-to option for configuring project builds
+up until now. They mostly suffice and are much faster, simpler and less
+abstract than CMake or Bazel builds, but still have some hurdles.
+
+- Third-party software is required to achieve basic functionality like
+  automatic rebuilds of files dependent on modified headers.
+- The syntax gets cluttery fast.
+- They require too much boilerplate.
+- People resort to nonstandard implementations to resolve the complications.
+- Effort is required to have them work with Nix.
+
+Additionally, beyond the scope of Makefiles, other traits may be sought after in
+new build systems, like determinism, better caching and more options for
+build-time programmability.
+
+Nix already offers wrappers for building projects using existing build systems,
+but that forms another abstraction, and the subordinate issues are not resolved.
+The pain points still don't end, as Nix is not compatible with the mutable
+stores used in traditional build systems. A build which fails at 95% has to
+restart from zero for every attempt at a patch. In practice, the wrappers are
+not used in development, only in publishing. Developers use dev shells to
+work outside of the deterministic build environment. After achieving a
+successful build in the dev shell, Nix may be set up to wrap the build system
+to verify determinism. This solution does not allow Nix to provide any value to
+new projects built with Nix in mind.
+
+Kein is not a build system in the same sense as the aforementioned. Kein
+provides build-oriented interfaces around Nix to allow building all parts of
+your programs for Nix directly. Every object is built separately and stored
+indefinitely as a derivation, allowing fast iteration times. Nix builds your
+projects without a build system.
+
+## Documentation
 ### Linkage
 #### Inferred linkage
 The linkage formula will by default be inferred by the constraint expressions
