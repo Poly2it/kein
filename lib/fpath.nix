@@ -33,6 +33,7 @@ in rec {
   components = fpath: (fpath.root |> splitPathString) ++ fpath.operations |> resolveComponents;
   fileName = fpath: fpath |> toPath |> toString |> splitPathString |> lib.lists.last;
   fileNameStem = fpath: fpath |> fileName |> lib.splitString "." |> (x: lib.elemAt x 0);
+  fileExtension = fpath: fpath |> fileName |> lib.splitString "." |> lib.drop 1 |> lib.concatStringsSep ".";
   pathStem = fpath: fpath |> toPath |> splitPathString |> lib.lists.dropEnd 1;
   relativeTo = fpath: string: fpath |> components |> lib.lists.commonPrefix;
   length = fpath:
