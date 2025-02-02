@@ -35,5 +35,26 @@ rec {
     else if lib.isAttrs value then
       value
     else throw value;
+  updateConstraint = attr: f: default: unresolvedConstraints: let
+    constraints = (lib.constraints.resolveConstraint unresolvedConstraints);
+  in
+    lib.setAttr constraints attr (f (
+      if lib.hasAttr attr constraints then
+        lib.getAttr attr constraints
+      else default
+    ));
+  setConstraint = attr: value: unresolvedConstraints: let
+    constraints = (lib.constraints.resolveConstraint unresolvedConstraints);
+  in
+    lib.setAttr constraints attr value;
+  setConstraints = newConstraints: unresolvedConstraints: let
+    constraints = (lib.constraints.resolveConstraint unresolvedConstraints);
+  in
+    lib.mergeAttrs constraints newConstraints;
+  setUnsetConstraints = newConstraints: unresolvedConstraints: let
+    constraints = (lib.constraints.resolveConstraint unresolvedConstraints);
+  in
+    lib.mergeAttrs newConstraints constraints;
+
 }
 

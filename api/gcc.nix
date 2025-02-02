@@ -1,20 +1,6 @@
 { lib, ... }: let
-  updateConstraint = attr: f: default: unresolvedConstraints: let
-    constraints = (lib.constraints.resolveConstraint unresolvedConstraints);
-  in
-    lib.setAttr constraints attr (f (
-      if lib.hasAttr attr constraints then
-        lib.getAttr attr constraints
-      else default
-    ));
-  setConstraint = attr: value: unresolvedConstraints: let
-    constraints = (lib.constraints.resolveConstraint unresolvedConstraints);
-  in
-    lib.setAttr constraints attr value;
-  setConstraints = newConstraints: unresolvedConstraints: let
-    constraints = (lib.constraints.resolveConstraint unresolvedConstraints);
-  in
-    lib.mergeAttrs constraints newConstraints;
+
+  inherit (lib.constraints) updateConstraint setConstraint setConstraints;
 in {
   include                    = package: c: c |> updateConstraint "include" (prev: prev ++ (if lib.isList package then package else [package])) [];
   link                       = package: c: c |> updateConstraint "link" (prev: prev ++ (if lib.isList package then package else [package])) [];
@@ -25,6 +11,7 @@ in {
   sanitizeAddresses          = value: c: c |> setConstraint "sanitizeAddresses" value;
   sanitizePointerComparisons = value: c: c |> setConstraint "sanitizePointerComparisons" value;
   setStandard                = value: c: c |> setConstraint "standard" value;
+  setMeta                    = value: c: c |> setConstraint "meta" value;
   debug                      = c: c |> setConstraints {
     sanitizeAddresses = true;
     sanitizePointerComparisons = true;

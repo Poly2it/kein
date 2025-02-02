@@ -8,8 +8,16 @@
   };
 
   outputs = { kein, ... }: kein.flakeFromKeinexpr {
-    bin = { pkgs, gcc, ... }: rec {
-      main =
+    meta = { lib, ... }: {
+      name = "rayprogram";
+      license = lib.licenses.lgpl3;
+    };
+    licenseFile = ../../LICENSE;
+    distributedFiles = [
+      ./NOTES.txt
+    ];
+    bin = { pkgs, gcc, ... }: {
+      rayprogram =
         [
           ./main.c
           ./utils.c
@@ -17,7 +25,6 @@
         |> gcc.include pkgs.raylib
         |> gcc.link "raylib"
         |> gcc.setPositionIndependent true;
-      default = main;
     };
   };
 }

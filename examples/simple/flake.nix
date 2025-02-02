@@ -10,7 +10,6 @@
   outputs = { kein, ... }: kein.flakeFromKeinexpr {
     bin = rec {
       main = ./main.c;
-      default = main;
     };
   };
 }

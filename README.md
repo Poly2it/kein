@@ -63,6 +63,11 @@ indefinitely as a derivation, allowing fast iteration times. Nix builds your
 projects without a build system.
 
 ## Documentation
+### Project Derivation
+Kein flakes automatically get a "default" derivation, a project derivation,
+which contains the files specified in the Kein expression. By default, the main
+program is the same as the name (`meta.name`) of the kein expression.
+
 ### Linkage
 #### Inferred linkage
 The linkage formula will by default be inferred by the constraint expressions
@@ -123,6 +128,30 @@ bin = { gcc, pkgs, ... }: rec {
     |> gcc.link "raylib";
   default = main;
 };
+```
+
+### Metadata and Special Files
+Metadata can be added to Kein expressions to attach information to build inputs.
+The data is added to the meta top-level attribute, which is either a set or
+function taking an attribute set containing `lib` and `pkgs`:
+
+```nix
+meta = { lib, ... }: {
+  name = "A Name";
+  license = lib.licenses.lgpl3;
+};
+```
+
+#### Special Files
+A license file can be added to the top-level attribute `licenseFile`. It will
+be added to the project derivations. Multiple licenses can be attached as a list
+in `licenseFiles`. Other files can be added to `distributedFiles`:
+
+```nix
+licenseFile = ./LICENSE;
+distributedFiles = [
+  ./NOTES.txt
+];
 ```
 
 ### `gcc.include <package/packages>`

@@ -1,7 +1,7 @@
 { lib, pkgs, system, ... }:
 
 {
-  keinDerivation = { name, command, pathEntries ? [], outputs ? ["out"], kein }: derivation {
+  keinDerivation = keinexpr @ { name, command, pathEntries ? [], outputs ? ["out"], meta ? {}, kein }: derivation {
     inherit name system outputs pathEntries;
     builder = pkgs.bash |> lib.getExe;
     args = [
@@ -13,6 +13,7 @@
     ];
     passthru.kein = kein;
     passthru.outPath = null;
+    meta = meta // { outPath = null; };
     preferLocalBuild = true;
     allowSubstitutes = false;
   };

@@ -1,5 +1,5 @@
 { lib, pkgs, ... }: let
-  assertOneOf = name: val: xs: (lib.assertOneOf name val xs) |> (_: val);
+  assertOneOf = name: val: xs: (lib.assertOneOf name val xs) |> (v: if v then val else throw "");
 in rec {
   fpathToUnitConstraints = fpath: {
     backend = "gcc";
@@ -83,7 +83,8 @@ in rec {
     ...
   }: listOptsPre: keyOpts: listOptsPost: (
     generateCommand
-    listOptsPre {
+    listOptsPre
+    {
       std = assertOneOf "standard" standard [
         # c90
         "c90"
@@ -280,6 +281,7 @@ in rec {
     kein = {
       inherit linkConstraints;
     };
+    meta.mainProgram = name;
   };
 }
 
