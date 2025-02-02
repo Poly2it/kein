@@ -92,7 +92,7 @@ following:
   bin = {
     main = ./main.c
   };
-};
+}
 ```
 
 `bin` in these expressions map to the `bin` directory in the result derivation
@@ -123,7 +123,7 @@ Here is a more complex Kein expression:
       |> gcc.link "utils"
       |> gcc.setPositionIndependent true;
   };
-};
+}
 ```
 
 Building [the above example](examples/raylib), we get the following directory
@@ -254,7 +254,7 @@ linked instead. To exemplify:
       |> gcc.link "applex"
       |> gcc.link "banane";
   };
-};
+}
 ```
 
 ### `gcc.define <key> <value>`
