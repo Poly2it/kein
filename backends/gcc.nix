@@ -17,31 +17,32 @@ in rec {
     inherit units;
   };
   constraintsToToolchain = pkgs: constraints: {
+    ar = "${pkgs.gcc}/bin/ar";
     cc = "${pkgs.gcc}/bin/gcc";
     ld = "${pkgs.gcc}/bin/gcc";
   };
   propagateConstraintsFromUnits = constraints @ {
-    positionIndependent ? false,
     ...
   }: units: (
     lib.foldr
     (a: b: lib.mergeAttrs a b)
     constraints
-    units) // {
-      positionIndependentExecutable = positionIndependent;
-    };
+    units);
   propagateConstraintsToUnit = constraints @ {
-    positionIndependent ? false,
     ...
   }: unit:
     unit
     |> lib.mergeAttrs constraints
-    |> (x: lib.removeAttrs x ["units"])
-    |> (constraints: constraints // {
-      positionIndependentExecutable = positionIndependent;
-    });
-  toExecutable = name: unresolvedConstraints @ { units ? [], ... }: let
-    mergedConstraints = propagateConstraintsFromUnits unresolvedConstraints units;
+    |> (x: lib.removeAttrs x ["units"]);
+  toExecutable = name: unresolvedConstraints @ {
+    units ? [],
+    positionIndependent ? false,
+    positionIndependentExecutable ? positionIndependent,
+    ...
+  }: let
+    mergedConstraints = (propagateConstraintsFromUnits unresolvedConstraints units) // {
+      inherit positionIndependent positionIndependentExecutable;
+    };
     constraints = lib.removeAttrs (lib.mergeAttrs mergedConstraints {
       units = lib.forEach unresolvedConstraints.units (unit: propagateConstraintsToUnit mergedConstraints unit);
     }) ["unit"];
@@ -50,6 +51,40 @@ in rec {
       toExecutable name (constraintsFromConstraintExprList [unresolvedConstraints])
     else
       linkUnits (constraintsToToolchain pkgs constraints) name constraints;
+  toStaticLibrary = name: unresolvedConstraints @ {
+    units ? [],
+    positionIndependent ? false,
+    positionIndependentCode ? positionIndependent,
+    ...
+  }: let
+    mergedConstraints = (propagateConstraintsFromUnits unresolvedConstraints units) // {
+      inherit positionIndependent positionIndependentCode;
+    };
+    constraints = lib.removeAttrs (lib.mergeAttrs mergedConstraints {
+      units = lib.forEach unresolvedConstraints.units (unit: propagateConstraintsToUnit mergedConstraints unit);
+    }) ["unit"];
+  in
+    if constraints.stage == "compile" then
+      toStaticLibrary name (constraintsFromConstraintExprList [unresolvedConstraints])
+    else
+      archiveUnits (constraintsToToolchain pkgs constraints) name constraints;
+  toSharedLibrary = name: unresolvedConstraints @ {
+    units ? [],
+    positionIndependent ? true,
+    positionIndependentCode ? positionIndependent,
+    ...
+  }: let
+    mergedConstraints = (propagateConstraintsFromUnits unresolvedConstraints units) // {
+      inherit positionIndependent positionIndependentCode;
+    };
+    constraints = lib.removeAttrs (lib.mergeAttrs mergedConstraints {
+      units = lib.forEach unresolvedConstraints.units (unit: propagateConstraintsToUnit mergedConstraints unit);
+    }) ["unit"];
+  in
+    if constraints.stage == "compile" then
+      toSharedLibrary name (constraintsFromConstraintExprList [unresolvedConstraints])
+    else
+      linkSharedObject (constraintsToToolchain pkgs constraints) name constraints;
   generateCommand = listOptsPre: keyOpts: listOptsPost: [
     (listOptsPre |> lib.flatten)
     (
@@ -212,8 +247,20 @@ in rec {
     units,
     include ? [],
     link ? [],
+    nativeLib ? {},
     ...
-  }: (
+  }: let
+    resolvedAndUnresolvedLinks =
+      link
+      |> map (name:
+        if lib.hasAttr name nativeLib then
+          lib.getAttr name nativeLib
+        else
+          name
+      );
+    resolvedLinks = resolvedAndUnresolvedLinks |> lib.filter (x: lib.isDerivation x);
+    unresolvedLinks = resolvedAndUnresolvedLinks |> lib.filter (x: lib.isString x);
+  in (
     generateBaseCommand
     constraints
     [
@@ -228,7 +275,29 @@ in rec {
     [
       (lib.forEach units (x: compileUnit (constraintsToToolchain pkgs units) x))
       (lib.forEach include (x: "-L${lib.makeLibraryPath [x]}"))
-      (lib.forEach link (x: "-l${x}"))
+      (lib.forEach unresolvedLinks (x: "-l${x}"))
+      resolvedLinks
+    ]
+  );
+  generateSharedObjectLinkCommand = toolchain: name: constraints @ {
+    units,
+    include ? [],
+    ...
+  }: (
+    generateBaseCommand
+    constraints
+    [
+      toolchain.ld
+      "-shared"
+      (lib.forEach units (x: compileUnit (constraintsToToolchain pkgs units) x))
+    ]
+    {
+      fuse-ld = "mold";
+      "Wl,-rpath" = lib.makeLibraryPath include;
+    }
+    [
+      "-o"
+      "$out"
     ]
   );
   compileUnit = toolchain: unitConstraints @ { unit, ... }: lib.builders.keinDerivation {
@@ -278,6 +347,46 @@ in rec {
     '';
     pathEntries = [pkgs.mold];
     outputs = ["bin"];
+    kein = {
+      inherit linkConstraints;
+    };
+    meta.mainProgram = name;
+  };
+  linkSharedObject = toolchain: name: linkConstraints: lib.builders.keinDerivation {
+    inherit name;
+    command = let
+      compileCommand = generateSharedObjectLinkCommand toolchain name linkConstraints;
+    in ''
+      echo ${compileCommand}
+      ${compileCommand}
+    '';
+    pathEntries = [pkgs.mold];
+    kein = {
+      inherit linkConstraints;
+    };
+    meta.mainProgram = name;
+  };
+  generateArchiveCommand = toolchain: name: { units, ... }: (
+    generateCommand
+    [
+      toolchain.ar
+      "rcs"
+      "$out"
+    ]
+    {}
+    [
+      (lib.forEach units (x: compileUnit (constraintsToToolchain pkgs units) x))
+    ]
+  );
+  archiveUnits = toolchain: name: linkConstraints: lib.builders.keinDerivation {
+    inherit name;
+    command = let
+      compileCommand = generateArchiveCommand toolchain name linkConstraints;
+    in ''
+      echo ${compileCommand}
+      ${compileCommand}
+    '';
+    pathEntries = [pkgs.mold];
     kein = {
       inherit linkConstraints;
     };

@@ -24,6 +24,14 @@ rec {
       gcc = backends.gcc;
     in gcc.toExecutable name constraintsExpr;
   }.${constraintsExpr.backend};
+  toLibrary = name: constraintsExpr: {
+    "gcc" = let
+      gcc = backends.gcc;
+    in if lib.hasSuffix ".so" name then
+      gcc.toSharedLibrary name constraintsExpr
+    else
+      gcc.toStaticLibrary name constraintsExpr;
+  }.${constraintsExpr.backend};
   resolveConstraint = value:
     if lib.isPath value then let
       fpath = value |> lib.fpath.mkFpath;
@@ -34,7 +42,7 @@ rec {
       |> inferConstraintsFromConstraintExprList
     else if lib.isAttrs value then
       value
-    else throw value;
+    else throw "resolveConstraint was given a value which cannot be resolved into a constraint";
   updateConstraint = attr: f: default: unresolvedConstraints: let
     constraints = (lib.constraints.resolveConstraint unresolvedConstraints);
   in
@@ -55,6 +63,5 @@ rec {
     constraints = (lib.constraints.resolveConstraint unresolvedConstraints);
   in
     lib.mergeAttrs newConstraints constraints;
-
 }
 

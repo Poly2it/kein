@@ -12,15 +12,14 @@ aarch64 Linux and Darwin:
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs?ref=nixos-unstable";
     kein = {
-      url = "https://github.com/Poly2it/kein.git";
+      url = "github:poly2it/kein";
       inputs.nixpkgs.follows = "nixpkgs";
     };
   };
 
   outputs = { kein, ... }: kein.flakeFromKeinexpr {
-    bin = rec {
+    bin = {
       main = ./main.c;
-      default = main;
     };
   };
 }
@@ -63,18 +62,98 @@ indefinitely as a derivation, allowing fast iteration times. Nix builds your
 projects without a build system.
 
 ## Documentation
+A minimal flake looks like this (the same as seen before):
+```nix
+{
+  description = "My kein flake";
+
+  inputs = {
+    nixpkgs.url = "github:nixos/nixpkgs?ref=nixos-unstable";
+    kein = {
+      url = "github:poly2it/kein";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+  };
+
+  outputs = { kein, ... }: kein.flakeFromKeinexpr {
+    bin = {
+      main = ./main.c;
+    };
+  };
+}
+```
+
+Henceforth, the attribute set used as the argument to kein.flakeFromKeinexpr
+is called a Kein expression, or `keinexpr`. A Kein expression looks like the
+following:
+
+```
+{
+  bin = {
+    main = ./main.c
+  };
+};
+```
+
+`bin` in these expressions map to the `bin` directory in the result derivation
+if you `nix build` the flake.
+
+Here is a more complex Kein expression:
+
+```
+{
+  meta = { lib, ... }: {
+    name = "rayprogram";
+    license = lib.licenses.lgpl3;
+  };
+  licenseFile = ../../LICENSE;
+  distributedFiles = [
+    ./NOTES.txt
+  ];
+  lib = { pkgs, gcc, ... }: {
+    "utils.so" =
+      ./utils.c
+      |> gcc.include pkgs.raylib;
+  };
+  bin = { pkgs, gcc, ... }: {
+    rayprogram =
+      ./main.c
+      |> gcc.include pkgs.raylib
+      |> gcc.link "raylib"
+      |> gcc.link "utils"
+      |> gcc.setPositionIndependent true;
+  };
+};
+```
+
+Building [the above example](examples/raylib), we get the following directory
+structure:
+
+```
+result
+├── bin
+│   └── rayprogram
+├── lib
+│   └── utils.so
+├── LICENSE
+└── NOTES.txt
+```
+
+The following sections should suffice to explain everything which is going on
+in that expression, if it's not clear already.
+
 ### Project Derivation
 Kein flakes automatically get a "default" derivation, a project derivation,
 which contains the files specified in the Kein expression. By default, the main
 program is the same as the name (`meta.name`) of the kein expression.
 
-### Linkage
-#### Inferred linkage
-The linkage formula will by default be inferred by the constraint expressions
+### Backend selection
+#### Inferred backend
+The backend formula will by default be inferred by the constraint expressions
 used in the linkage expression.
 
-#### Explicit linkage
-The linkage forumla can be written expressly using `<backend>` as a functor.
+#### Explicit backend
+The backend forumla can be written expressly using `<backend>` as a functor.
 
 ```nix
 ./main.c |> gcc
@@ -159,7 +238,24 @@ Where package is a derivation, makes its `include` directory searchable during
 object compilation, and `lib` searchable during linkage.
 
 ### `gcc.link <name/names>`
-Links `name` as in `-l<name>` during compilation.
+Links `name` as in `-l<name>` during compilation. If `name` can be found as an
+output in the top-level `lib` section in a Kein expression, that library will be
+linked instead. To exemplify:
+
+```nix
+{
+  lib = { pkgs, gcc, ... }: {
+    "applex.a" = ./applex.c;
+    "banane.so" = ./banane.c;
+  };
+  bin = { pkgs, gcc, ... }: {
+    main =
+      ./main.c
+      |> gcc.link "applex"
+      |> gcc.link "banane";
+  };
+};
+```
 
 ### `gcc.define <key> <value>`
 Defines `key` as a compile-time macro `name`.

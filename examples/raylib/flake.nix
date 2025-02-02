@@ -16,14 +16,17 @@
     distributedFiles = [
       ./NOTES.txt
     ];
+    lib = { pkgs, gcc, ... }: {
+      "utils.so" =
+        ./utils.c
+        |> gcc.include pkgs.raylib;
+    };
     bin = { pkgs, gcc, ... }: {
       rayprogram =
-        [
-          ./main.c
-          ./utils.c
-        ]
+        ./main.c
         |> gcc.include pkgs.raylib
         |> gcc.link "raylib"
+        |> gcc.link "utils"
         |> gcc.setPositionIndependent true;
     };
   };

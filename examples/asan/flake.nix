@@ -8,9 +8,8 @@
   };
 
   outputs = { kein, ... }: kein.flakeFromKeinexpr {
-    bin = { gcc, ... }: rec {
+    bin = { gcc, ... }: {
       main = ./main.c |> gcc.debug;
-      default = main;
     };
   };
 }

@@ -10,7 +10,7 @@
     systems = ["x86_64-linux" "aarch64-linux" "x86_64-darwin" "aarch64-darwin"];
     forAllSystems = f: nixpkgs.lib.genAttrs systems (system: f (pkgsFor system) system);
   in {
-    flakeFromKeinexpr = keinexpr @ { bin ? {}, meta ? {}, distributedFiles ? [], ... }: {
+    flakeFromKeinexpr = keinexpr @ { bin ? {}, lib ? {}, meta ? {}, distributedFiles ? [], ... }: {
       overlays.default = final: prev: {
       };
       packages = forAllSystems (pkgs: system: let
@@ -27,20 +27,35 @@
         sharedMeta =
           {}
           |> (if lib.hasAttr "license" resolvedMeta then (x: lib.setAttr x "license" resolvedMeta.license) else noop);
-        binPackages =
-          (if builtins.isFunction bin then
-            (bin { inherit pkgs system; gcc = api.gcc; })
+        libPackages =
+          (if builtins.isFunction keinexpr.lib then
+            (keinexpr.lib { inherit pkgs system; gcc = api.gcc; })
           else
-            bin)
+            keinexpr.lib)
           |> lib.attrsToList
           |> map ({ name, value }: {
             inherit name;
-            value = (lib.constraints.toExecutable name (value |> lib.constraints.setUnsetConstraints {
+            value = lib.constraints.toLibrary name (value |> lib.constraints.setUnsetConstraints {
               meta = sharedMeta;
-            }));
+            });
+          })
+          |> lib.listToAttrs;
+        binPackages =
+          (if builtins.isFunction keinexpr.bin then
+            (keinexpr.bin { inherit pkgs system; gcc = api.gcc; })
+          else
+            keinexpr.bin)
+          |> lib.attrsToList
+          |> map ({ name, value }: {
+            inherit name;
+            value = lib.constraints.toExecutable name (value |> lib.constraints.setUnsetConstraints {
+              meta = sharedMeta;
+              nativeLib = libPackages |> lib.mapAttrsToList (name: value: { name = name |> lib.splitString "." |> (x: lib.elemAt x 0); value = value; }) |> lib.listToAttrs;
+            });
           })
           |> lib.listToAttrs;
         outputsBin = (binPackages |> lib.attrsToList |> lib.length) > 0;
+        outputsLib = (libPackages |> lib.attrsToList |> lib.length) > 0;
         licenseFiles =
           if lib.hasAttr "licenseFiles" keinexpr then
             keinexpr.licenseFiles
@@ -64,6 +79,8 @@
               ${resovledDistributedFiles |> lib.mapAttrsToList (name: value: "cp ${value} $out/${name}") |> lib.concatStringsSep "\n"}
               ${if outputsBin then "mkdir -p $out/bin" else ""};
               ${binPackages |> lib.mapAttrsToList (name: value: "cp ${value |> lib.getExe} $out/bin/${name}") |> lib.concatStringsSep "\n"}
+              ${if outputsLib then "mkdir -p $out/lib" else ""};
+              ${libPackages |> lib.mapAttrsToList (name: value: "cp ${value} $out/lib/${name}") |> lib.concatStringsSep "\n"}
             '';
             kein = {};
             meta = sharedMeta // {

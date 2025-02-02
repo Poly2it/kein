@@ -8,7 +8,7 @@
   };
 
   outputs = { kein, ... }: kein.flakeFromKeinexpr {
-    bin = rec {
+    bin = {
       main = ./main.c;
     };
   };
