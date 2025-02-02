@@ -154,6 +154,9 @@ addresses.
 Decides whether AddressSanitizer should be set to sanitise pointer comparisons
 between unrelated objects. Will also enable `sanitizeAddresses`.
 
+### `gcc.setStandard <value>`
+Set the language standard revision to `value`. Equivalent to `-std=<value>`.
+
 ### `gcc.debug`
 Enables an assortent of options tailored towards debuggable builds. Includes
 AddressSanitizer.

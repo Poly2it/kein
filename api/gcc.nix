@@ -24,6 +24,7 @@ in {
   setDebugSymbols            = value: c: c |> setConstraint "debugSymbols" value;
   sanitizeAddresses          = value: c: c |> setConstraint "sanitizeAddresses" value;
   sanitizePointerComparisons = value: c: c |> setConstraint "sanitizePointerComparisons" value;
+  setStandard                = value: c: c |> setConstraint "standard" value;
   debug                      = c: c |> setConstraints {
     sanitizeAddresses = true;
     sanitizePointerComparisons = true;
