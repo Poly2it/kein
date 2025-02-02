@@ -87,7 +87,7 @@ Henceforth, the attribute set used as the argument to kein.flakeFromKeinexpr
 is called a Kein expression, or `keinexpr`. A Kein expression looks like the
 following:
 
-```
+```nix
 {
   bin = {
     main = ./main.c
@@ -100,7 +100,7 @@ if you `nix build` the flake.
 
 Here is a more complex Kein expression:
 
-```
+```nix
 {
   meta = { lib, ... }: {
     name = "rayprogram";
