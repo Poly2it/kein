@@ -125,11 +125,11 @@ bin = { gcc, pkgs, ... }: rec {
 };
 ```
 
-### `gcc.include <package>`
+### `gcc.include <package/packages>`
 Where package is a derivation, makes its `include` directory searchable during
 object compilation, and `lib` searchable during linkage.
 
-### `gcc.link <name>`
+### `gcc.link <name/names>`
 Links `name` as in `-l<name>` during compilation.
 
 ### `gcc.define <key> <value>`

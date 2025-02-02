@@ -16,8 +16,8 @@
   in
     lib.mergeAttrs constraints newConstraints;
 in {
-  include                    = package: c: c |> updateConstraint "include" (prev: prev ++ [package]) [];
-  link                       = package: c: c |> updateConstraint "link" (prev: prev ++ [package]) [];
+  include                    = package: c: c |> updateConstraint "include" (prev: prev ++ (if lib.isList package then package else [package])) [];
+  link                       = package: c: c |> updateConstraint "link" (prev: prev ++ (if lib.isList package then package else [package])) [];
   define                     = key: value: c: c |> updateConstraint "define" (prev: prev // { ${key} = value; }) {};
   setPositionIndependent     = value: c: c |> setConstraint "positionIndependent" value;
   setOptimizeLevel           = value: c: c |> setConstraint "optimizeLevel" value;
