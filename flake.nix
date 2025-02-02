@@ -89,7 +89,7 @@
           };
         }
       );
-      devShells = forAllSystems (pkgs: {
+      devShells = forAllSystems (pkgs: system: {
       });
     };
   };
