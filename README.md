@@ -171,9 +171,8 @@ Different backends have different constraints. To access a backend, write your
 output (bin, lib, etc.) as a function taking a set:
 
 ```nix
-bin = { gcc, ... }: rec {
+bin = { gcc, ... }: {
   main = ./main.c;
-  default = main;
 };
 ```
 
@@ -182,12 +181,11 @@ access to `pkgs` and `system`. We can now set compilation options, for example
 including the raylib headers and linking raylib:
 
 ```nix
-bin = { gcc, pkgs, ... }: rec {
+bin = { gcc, pkgs, ... }: {
   main =
     ./main.c
     |> gcc.include pkgs.raylib
     |> gcc.link "raylib";
-  default = main;
 };
 ```
 
@@ -196,7 +194,7 @@ propagate to all inner constraints. To except an inner `constraintExpr`, the
 inverse, or another value on the excepted expression:
 
 ```nix
-bin = { gcc, pkgs, ... }: rec {
+bin = { gcc, pkgs, ... }: {
   main =
     [
       ./a.c
@@ -205,7 +203,6 @@ bin = { gcc, pkgs, ... }: rec {
     |> gcc.setPositionIndependent true
     |> gcc.include pkgs.raylib
     |> gcc.link "raylib";
-  default = main;
 };
 ```
 
