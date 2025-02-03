@@ -10,7 +10,10 @@
     systems = ["x86_64-linux" "aarch64-linux" "x86_64-darwin" "aarch64-darwin"];
     forAllSystems = f: nixpkgs.lib.genAttrs systems (system: f (pkgsFor system) system);
   in {
-    flakeFromKeinexpr = keinexpr @ { bin ? {}, lib ? {}, meta ? {}, distributedFiles ? [], ... }: {
+    flakeFromKeinexpr = keinexpr @ { bin ? {}, lib ? {}, meta ? {}, distributedFiles ? [], ... }: let
+      resolvedBin = bin;
+      resovledLib = lib;
+    in {
       overlays.default = final: prev: {
       };
       packages = forAllSystems (pkgs: system: let
@@ -28,10 +31,10 @@
           {}
           |> (if lib.hasAttr "license" resolvedMeta then (x: lib.setAttr x "license" resolvedMeta.license) else noop);
         libPackages =
-          (if builtins.isFunction keinexpr.lib then
-            (keinexpr.lib { inherit pkgs system; gcc = api.gcc; })
+          (if builtins.isFunction resovledLib then
+            (resovledLib  { inherit pkgs system; gcc = api.gcc; })
           else
-            keinexpr.lib)
+            resovledLib )
           |> lib.attrsToList
           |> map ({ name, value }: {
             inherit name;
@@ -41,10 +44,10 @@
           })
           |> lib.listToAttrs;
         binPackages =
-          (if builtins.isFunction keinexpr.bin then
-            (keinexpr.bin { inherit pkgs system; gcc = api.gcc; })
+          (if builtins.isFunction resolvedBin then
+            (resolvedBin { inherit pkgs system; gcc = api.gcc; })
           else
-            keinexpr.bin)
+            resolvedBin)
           |> lib.attrsToList
           |> map ({ name, value }: {
             inherit name;
@@ -77,15 +80,25 @@
               mkdir -p $out
               ${licenseFiles |> lib.mapAttrsToList (name: value: "cp ${value} $out/${name}") |> lib.concatStringsSep "\n"}
               ${resovledDistributedFiles |> lib.mapAttrsToList (name: value: "cp ${value} $out/${name}") |> lib.concatStringsSep "\n"}
-              ${if outputsBin then "mkdir -p $out/bin" else ""};
+              ${if outputsBin then "mkdir -p $out/bin" else ""}
               ${binPackages |> lib.mapAttrsToList (name: value: "cp ${value |> lib.getExe} $out/bin/${name}") |> lib.concatStringsSep "\n"}
-              ${if outputsLib then "mkdir -p $out/lib" else ""};
+              ${if outputsLib then "mkdir -p $out/lib" else ""}
               ${libPackages |> lib.mapAttrsToList (name: value: "cp ${value} $out/lib/${name}") |> lib.concatStringsSep "\n"}
             '';
             kein = {};
-            meta = sharedMeta // {
-              mainProgram = name;
-            };
+            meta = sharedMeta // (let
+              binLength = binPackages |> lib.attrsToList |> lib.length;
+              binSingleton = binPackages |> lib.attrsToList |> (x: lib.elemAt x 0);
+            in {
+              mainProgram =
+                if
+                  lib.hasAttr "mainProgram" resolvedMeta then
+                    resolvedMeta.mainProgram
+                else if binLength == 1 then
+                  binSingleton.name
+                else
+                  name;
+            });
           };
         }
       );
