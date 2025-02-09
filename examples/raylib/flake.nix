@@ -18,12 +18,13 @@
     ];
     lib = { pkgs, gcc, ... }: {
       "utils.so" =
-        ./utils.c
-        |> gcc.include pkgs.raylib;
+        [./utils.c]
+        |> gcc.include pkgs.raylib
+        |> gcc.link "raylib";
     };
     bin = { pkgs, gcc, ... }: {
       rayprogram =
-        ./main.c
+        [./main.c]
         |> gcc.include pkgs.raylib
         |> gcc.link "raylib"
         |> gcc.link "utils"

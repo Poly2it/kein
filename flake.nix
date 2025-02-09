@@ -38,8 +38,16 @@
           |> lib.attrsToList
           |> map ({ name, value }: {
             inherit name;
-            value = lib.constraints.toLibrary name (value |> lib.constraints.setUnsetConstraints {
+            value = lib.constraints.toLibrary name ((value |> lib.constraints.setUnsetConstraints {
               meta = sharedMeta;
+            }) // {
+              localLib =
+                libPackages
+                |> lib.mapAttrsToList (name: value: {
+                  name = name |> lib.splitString "." |> (x: lib.elemAt x 0);
+                  value = value;
+                })
+                |> lib.listToAttrs;
             });
           })
           |> lib.listToAttrs;
@@ -51,9 +59,16 @@
           |> lib.attrsToList
           |> map ({ name, value }: {
             inherit name;
-            value = lib.constraints.toExecutable name (value |> lib.constraints.setUnsetConstraints {
+            value = lib.constraints.toExecutable name ((value |> lib.constraints.setUnsetConstraints {
               meta = sharedMeta;
-              nativeLib = libPackages |> lib.mapAttrsToList (name: value: { name = name |> lib.splitString "." |> (x: lib.elemAt x 0); value = value; }) |> lib.listToAttrs;
+            }) // {
+              localLib =
+                libPackages
+                |> lib.mapAttrsToList (name: value: {
+                  name = name |> lib.splitString "." |> (x: lib.elemAt x 0);
+                  value = value;
+                })
+                |> lib.listToAttrs;
             });
           })
           |> lib.listToAttrs;

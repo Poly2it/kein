@@ -112,12 +112,13 @@ Here is a more complex Kein expression:
   ];
   lib = { pkgs, gcc, ... }: {
     "utils.so" =
-      ./utils.c
-      |> gcc.include pkgs.raylib;
+      [./utils.c]
+      |> gcc.include pkgs.raylib
+      |> gcc.link "raylib";
   };
   bin = { pkgs, gcc, ... }: {
     rayprogram =
-      ./main.c
+      [./main.c]
       |> gcc.include pkgs.raylib
       |> gcc.link "raylib"
       |> gcc.link "utils"
@@ -183,15 +184,17 @@ including the raylib headers and linking raylib:
 ```nix
 bin = { gcc, pkgs, ... }: {
   main =
-    ./main.c
+    [./main.c]
     |> gcc.include pkgs.raylib
     |> gcc.link "raylib";
 };
 ```
 
-If the constraint is acting on a list of `constraintExprs`, the constraint will
-propagate to all inner constraints. To except an inner `constraintExpr`, the
-inverse, or another value on the excepted expression:
+**Constraints acting on lists of constraint expressions propagate to the
+linking stage**. Each subordinate item is considered translation unit in the
+GCC backend. Constraints acting on these also propagate to all inner
+constraints. To except an inner `constraintExpr`, the inverse, or another value
+on the excepted expression:
 
 ```nix
 bin = { gcc, pkgs, ... }: {
@@ -205,6 +208,9 @@ bin = { gcc, pkgs, ... }: {
     |> gcc.link "raylib";
 };
 ```
+
+The only constraints which propagate outwards from lists of constraint
+expressions are `include` and `link`.
 
 ### Metadata and Special Files
 Metadata can be added to Kein expressions to attach information to build inputs.
@@ -265,16 +271,38 @@ an executable, `-fPIE` will be used. If the unit is compiled to an archive
 ### `gcc.setOptimizeLevel <value>`
 Sets the optimization level to `value`. Equivalent to `-O<value>`.
 
-### `gcc.setDebugSymbols <bool>`
+### `gcc.enableDebugging <bool>`
 Decides whether debug symbols should be enabled. Equivalent to `-g`.
+
+### `gcc.setDebuggingTarget <value>`
+Selects the target debugging format used, and enables debugging.
+
+### `gcc.setDebuggingLevel <value>`
+Sets the debugging level emitted from GCC.
 
 ### `gcc.sanitizeAddresses <bool>`
 Decides whether AddressSanitizer should be enabled and set to sanitise
 addresses.
 
+### `gcc.sanitizeKernelAddresses <bool>`
+Decides whether Linux Kernel Sanitizers should be enabled.
+
+### `gcc.sanitizeThreads <bool>`
+Decides whether ThreadSanitizer should be enabled.
+
+### `gcc.sanitizeUndefinedBehaviour <bool>`
+Decides whether UndefinedBehaviourSanitizer should be enabled.
+
+### `gcc.sanitizeLeaks <bool>`
+Decides whether LeakSanitizer should be enabled.
+
 ### `gcc.sanitizePointerComparisons <bool>`
 Decides whether AddressSanitizer should be set to sanitise pointer comparisons
 between unrelated objects. Will also enable `sanitizeAddresses`.
+
+### `gcc.sanitizePointerSubtraction <bool>`
+Decides whether AddressSanitizer should be set to sanitise pointer subtraction.
+Will also enable `sanitizeAddresses`.
 
 ### `gcc.setStandard <value>`
 Set the language standard revision to `value`. Equivalent to `-std=<value>`.
@@ -282,4 +310,67 @@ Set the language standard revision to `value`. Equivalent to `-std=<value>`.
 ### `gcc.debug`
 Enables an assortent of options tailored towards debuggable builds. Includes
 AddressSanitizer.
+
+### `gcc.setArguments <arguments>`
+Allows you to include any supported GCC command-line argument. The support for
+this option is considered second-class. Kein resolves option dependencies and
+other niceties when declaring options using constraints. Regardless, this
+option can be quite useful, especially for bespoke operations.
+
+```nix
+{
+  bin = { gcc, ... }: {
+    main = [./main.c] |> gcc.setArguments {
+      cOptions.std = "iso9899:1999";
+      codeGenerationFlags.PIC = true;
+      instrumentationFlags.sanitize = ["address" "pointer-compare"];
+    };
+  };
+}
+```
+
+`arguments` is an attribute set of arguments divided into categories. The
+categories are as follows:
+
+#### Flags (`-f...`)
+- `overallFlags`
+- `cFlags`
+- `cppFlags`
+- `objcObjcppFlags`
+- `diagnosticFlags`
+- `debuggingFlags`
+- `instrumentationFlags`
+- `optimizationFlags`
+- `preprocessorFlags`
+- `linkerFlags`
+- `codeGenerationFlags`
+
+#### Debugging (`-g...`)
+
+#### Options (`-...`)
+- `overallOptions`
+- `cOptions`
+- `warningOptions`
+- `optimizationOptions`
+- `instrumentationOptions`
+- `preprocessorOptions`
+- `assemblerOptions`
+- `linkerOptions`
+- `directoryOptions`
+
+#### Warnings (`-W...`)
+- `overallWarnings`
+- `cObjcWarnings`
+
+The specific category in which an argument is found can be found in the [source
+code for command generation](backends/gcc/arguments/to_command.nix). The names
+for the arguments directly reflect the actual GCC arguments, with some
+quality-of-life exceptions. Addition signs, as in *-c++*, are replaced with
+*p*s, as in *-cpp*. Common prefixes in categories are removed;
+`-ftree-vectorize` becomes `tree-vectorize`.
+
+Four types are supported for arguments: `null` discards the argument; `string`
+creates an appropriate value binding to the value; `list` does as the string;
+but repeats the argument for every value; and `bool` includes the argument as-is
+if the value is true, or discards the argument otherwise.
 

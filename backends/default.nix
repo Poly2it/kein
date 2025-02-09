@@ -1,6 +1,6 @@
 { lib, pkgs, ... }:
 
 {
-  gcc = import ./gcc.nix { inherit lib pkgs; };
+  gcc = import ./gcc { inherit lib pkgs; };
 }
 

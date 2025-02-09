@@ -9,7 +9,7 @@
 
   outputs = { kein, ... }: kein.flakeFromKeinexpr {
     bin = { gcc, ... }: {
-      main = ./main.c |> gcc.debug;
+      main = [./main.c] |> gcc.debug;
     };
   };
 }

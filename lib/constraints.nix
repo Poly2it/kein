@@ -28,7 +28,7 @@ rec {
     "gcc" = let
       gcc = backends.gcc;
     in if lib.hasSuffix ".so" name then
-      gcc.toSharedLibrary name constraintsExpr
+      gcc.toSharedObject name constraintsExpr
     else
       gcc.toStaticLibrary name constraintsExpr;
   }.${constraintsExpr.backend};
