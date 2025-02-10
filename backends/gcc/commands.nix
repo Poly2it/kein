@@ -2,7 +2,10 @@
   assertOneOf = name: val: xs: (lib.assertOneOf name val xs) |> (v: if v then val else throw "");
 in rec {
   mkCArguments = constraints @ {
-    standard ? "c23",
+    standard ? {
+      "c" = "c23";
+      "cpp" = "c++23";
+    }.${language},
     optimizationLevel ? 2,
     debuggingTarget ? "",
     debuggingLevel ? 2,
@@ -13,12 +16,16 @@ in rec {
     sanitizePointerSubtraction ? false,
     sanitizeUndefinedBehaviour ? false,
     arguments ? {},
+    language,
     ...
   }: let
     debuggingLevelString = debuggingLevel |> toString;
   in lib.mergeAttrs {
+    gcc = {
+      "c" = "${pkgs.gcc}/bin/gcc";
+      "cpp" = "${pkgs.gcc}/bin/g++";
+    }.${language};
     overallOptions = {
-      c = true;
     };
     cOptions = {
       std = assertOneOf "standard" standard [
@@ -147,7 +154,7 @@ in rec {
     include ? [],
     ...
   }: (
-    lib.mergeAttrs
+    lib.recursiveUpdate
     (mkCArguments constraints)
     {
       overallOptions.c = true;
@@ -161,7 +168,7 @@ in rec {
     ...
   }: outpath: let
   in (
-    lib.mergeAttrs
+    lib.recursiveUpdate
     (mkCArguments constraints)
     {
       overallOptions.o = outpath;

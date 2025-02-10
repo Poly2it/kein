@@ -1,10 +1,20 @@
 { lib, pkgs, ... }: let
   graph = (import ./graph.nix { inherit pkgs lib; });
 in rec {
-  fpathToUnitConstraints = fpath: {
+  fpathToUnitConstraints = fpath: let
+    language = {
+      "c" = "c";
+      "C" = "cpp";
+      "cc" = "cpp";
+      "cpp" = "cpp";
+      "cxx" = "cpp";
+      "c++" = "cpp";
+    }.${fpath |> lib.fpath.fileExtension};
+  in {
     __type = "constraints";
     backend = "gcc";
     stage = "compile";
+    inherit language;
 
     unit = fpath;
   };
@@ -13,13 +23,17 @@ in rec {
     childConstraints =
       ({ link ? [], include ? [], localLib ? {}, ... }: { inherit link include localLib; })
       (units |> lib.mergeAttrsList);
+    language = lib.foldl (a: b: {
+      "c" = b.language;
+      "cpp" = "cpp";
+    }.${a.language}) (lib.elemAt units 0) units;
   in {
     __type = "constraints";
     backend = "gcc";
     stage = "link";
 
     inherit (childConstraints) link include localLib;
-    inherit units;
+    inherit units language;
   };
   horizontalConstraints = units: let
     mergedConstraints = (
@@ -43,7 +57,7 @@ in rec {
     mergedConstraints;
   propagateConstraintsToUnit = constraints: unit:
     unit
-    |> lib.mergeAttrs constraints
+    |> lib.recursiveUpdate constraints
     |> (x: lib.removeAttrs x ["units"]);
   resolveLinkConstraints = constraints @ { units ? [], ... }: let
     outwardPropagatedConstraints = (verticalConstraints units);

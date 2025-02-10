@@ -1,10 +1,15 @@
 { lib, backends, ... }:
 
 rec {
-  inferConstraintsFromFpath = fpath: {
-    "c" = let
-      gcc = backends.gcc;
-    in gcc.fpathToUnitConstraints fpath;
+  inferConstraintsFromFpath = fpath: let
+    inherit (backends) gcc;
+  in {
+    "c" = gcc.fpathToUnitConstraints fpath;
+    "C" = gcc.fpathToUnitConstraints fpath;
+    "cc" = gcc.fpathToUnitConstraints fpath;
+    "cpp" = gcc.fpathToUnitConstraints fpath;
+    "cxx" = gcc.fpathToUnitConstraints fpath;
+    "c++" = gcc.fpathToUnitConstraints fpath;
   }.${lib.fpath.fileExtension fpath};
   inferConstraintsFromConstraintExprList = list: let
     backend = lib.foldr (aUnresolved: backend: let
